@@ -7,11 +7,13 @@ class Algorithm(ABC):
     def __init__(self, casino, initialCredits) -> None:
         self._casino = casino
         self._initialCredits = initialCredits
-        self._runsAndRewards = None
+        self._runs = None
+        self._rewards = None
         self.initialize()
 
     def initialize(self):
-        self._runsAndRewards = np.zeros((self._casino.machines_count, 2))
+        self._runs = np.zeros(self._casino.machines_count)
+        self._rewards = np.zeros(self._casino.machines_count)
 
 
 # Abstract class for all glouton algorithms
@@ -29,10 +31,10 @@ class AbstractGlouton(Algorithm):
         self.initialize()
         for _ in range(self._testIterations):
             for machineIndex in range(self._casino.machines_count):
-                self._runsAndRewards[machineIndex, 1] += self._casino.machines[
+                self._rewards[machineIndex] += self._casino.machines[
                     machineIndex
                 ].play()
-                self._runsAndRewards[machineIndex, 0] += 1
+                self._runs[machineIndex] += 1
 
 
 # Implementing the Glouton method
@@ -45,14 +47,14 @@ class Glouton(AbstractGlouton):
         remaining_play_credits = (
             self._initialCredits - self._testIterations * self._casino.machines_count
         )
-        best_machine_index = np.argmax(self._runsAndRewards[:, 1])
+        best_machine_index = np.argmax(self._rewards)
         while remaining_play_credits > 0:
-            self._runsAndRewards[best_machine_index, 1] += self._casino.machines[
+            self._rewards[best_machine_index] += self._casino.machines[
                 best_machine_index
             ].play()
-            self._runsAndRewards[best_machine_index, 0] += 1
+            self._runs[best_machine_index] += 1
             remaining_play_credits -= 1
-        return self._runsAndRewards[:, 1].sum()
+        return self._rewards.sum()
 
 
 # Implementing the epsilon-Glouton method
@@ -72,21 +74,21 @@ class EpsilonGlouton(AbstractGlouton):
         remaining_play_credits = (
             self._initialCredits - self._testIterations * self._casino.machines_count
         )
-        best_machine_index = np.argmax(self._runsAndRewards[:, 1])
+        best_machine_index = np.argmax(self._rewards)
         while remaining_play_credits > 0:
             if np.random.random() > self._epsilon:
-                self._runsAndRewards[best_machine_index, 1] += self._casino.machines[
+                self._rewards[best_machine_index] += self._casino.machines[
                     best_machine_index
                 ].play()
-                self._runsAndRewards[best_machine_index, 0] += 1
+                self._runs[best_machine_index] += 1
             else:
                 random_index = np.random.randint(0, self._casino.machines_count - 1)
-                self._runsAndRewards[random_index, 1] += self._casino.machines[
+                self._rewards[random_index] += self._casino.machines[
                     random_index
                 ].play()
-                self._runsAndRewards[random_index, 0] += 1
+                self._runs[random_index] += 1
             remaining_play_credits -= 1
-        return self._runsAndRewards[:, 1].sum()
+        return self._rewards.sum()
 
 
 # Implementing the UCB method
@@ -108,11 +110,11 @@ class UCB(Algorithm):
         arg = None
         maximal_reward = 0
         for a in range(self._casino.machines_count):
-            if self._runsAndRewards[a, 0] == 0:
+            if self._runs[a] == 0:
                 return a
             else:
-                delta = np.sqrt(2 * np.log(self._n) / self._runsAndRewards[a, 0])
-                reward = self._runsAndRewards[a, 1] + c * delta
+                delta = np.sqrt(2 * np.log(self._n) / self._runs[a])
+                reward = self._rewards[a] + c * delta
                 if reward > maximal_reward:
                     maximal_reward = reward
                     arg = a
@@ -123,18 +125,18 @@ class UCB(Algorithm):
             return None, self._n
         arg = self._maximal_reward_arg(c)
         reward = self._casino.machines[arg].play()
-        self._runsAndRewards[arg, 1] = (
-            self._runsAndRewards[arg, 0] * self._runsAndRewards[arg, 1] + reward
-        ) / (self._runsAndRewards[arg, 0] + 1)
-        self._runsAndRewards[arg, 0] += 1
+        self._rewards[arg] = (self._runs[arg] * self._rewards[arg] + reward) / (
+            self._runs[arg] + 1
+        )
+        self._runs[arg] += 1
         self._n += 1
         return reward, self._n - 1
 
     def do_ucb(self, c=1):
         self.initialize()
         v = 0
-        reward, _ = self.do_one_step_ucb(c)
-        while reward is not None:
-            v += reward
+        for i in range(self._initialCredits):
             reward, _ = self.do_one_step_ucb(c)
+            v += reward
+        assert self.do_one_step_ucb(c)[0] is None
         return v
