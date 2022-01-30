@@ -4,12 +4,12 @@ import numpy as np
 class Bandit:
     def __init__(self, mu=None):
         if mu is None:
-            self.mu = np.random.random()  # mean payoff of the machine
+            self.mu = np.random.randn() + 1  # mean payoff of the machine
         else:
             self.mu = mu
 
     def play(self):
-        return 1 if np.random.random() > self.mu else 0
+        return np.random.randn() + self.mu  # We add some randomness to reward
 
 
 class Casino:
@@ -22,4 +22,4 @@ class Casino:
 
     # We cheat if we use it. Must only be used to calculate the regret
     def real_best_choice(self):
-        return min(self.machines, key=lambda m: m.mu)
+        return max(enumerate(self.machines), key=lambda m: m[1].mu)
